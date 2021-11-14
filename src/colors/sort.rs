@@ -119,6 +119,63 @@ impl Sort for palette::Srgb {
     }
 }
 
+#[cfg(feature = "palette_color")]
+impl Sort for palette::Hsv {
+    fn get_dominant_color(data: &[CentroidData<Self>]) -> Option<Self> {
+        data.iter()
+            .max_by(|a, b| (a.percentage).partial_cmp(&b.percentage).unwrap())
+            .map(|res| res.centroid)
+    }
+
+    fn sort_indexed_colors(centroids: &[Self], indices: &[u8]) -> Vec<CentroidData<Self>> {
+        // Count occurences of each color - "histogram"
+        let mut map: std::collections::HashMap<u8, u64> = std::collections::HashMap::new();
+        for (i, _) in centroids.iter().enumerate() {
+            map.insert(i as u8, 0);
+        }
+        for i in indices {
+            let count = map.entry(*i).or_insert(0);
+            *count += 1;
+        }
+
+        let len = indices.len();
+        assert!(len > 0);
+        let mut colors: Vec<(u8, f32)> = Vec::with_capacity(centroids.len());
+        for (i, _) in centroids.iter().enumerate() {
+            let count = map.get(&(i as u8));
+            match count {
+                Some(x) => colors.push((i as u8, (*x as f32) / (len as f32))),
+                None => continue,
+            }
+        }
+
+        // Sort by increasing luminosity
+        let mut lab: Vec<(u8, f32)> = centroids
+            .iter()
+            .enumerate()
+            .map(|(i, x)| (i as u8, x.value))
+            .collect();
+        lab.sort_unstable_by(|a, b| (a.1).partial_cmp(&b.1).unwrap());
+
+        // Pack the colors and their percentages into the return vector
+        lab.iter()
+            .filter_map(|x| map.get_key_value(&x.0))
+            .filter(|x| *x.1 > 0)
+            .filter_map(|x| match colors.get(*x.0 as usize) {
+                Some(x) => colors
+                    .iter()
+                    .position(|a| a.0 == x.0 as u8)
+                    .map(|y| CentroidData {
+                        centroid: *(centroids.get(colors.get(y).unwrap().0 as usize).unwrap()),
+                        percentage: colors.get(y).unwrap().1,
+                        index: y as u8,
+                    }),
+                None => None,
+            })
+            .collect()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{CentroidData, Sort};
