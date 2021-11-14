@@ -220,7 +220,7 @@ impl Calculate for Hsv {
             value += (c.0).value - (c.1).value;
         }
 
-        hue * hue + saturation * saturation + value * value
+        hue.powi(2) + (saturation * 360.0).powi(2) + (value * 360.0).powi(2)
     }
 
     #[inline]
@@ -235,8 +235,8 @@ impl Calculate for Hsv {
     #[inline]
     fn difference(c1: &Hsv, c2: &Hsv) -> f32 {
         (c1.hue.to_positive_degrees() - c2.hue.to_positive_degrees()).powi(2)
-            + (c1.saturation - c2.saturation) * (c1.saturation - c2.saturation)
-            + (c1.value - c2.value) * (c1.value - c2.value)
+            + ((c1.saturation - c2.saturation) * 360.0).powi(2)
+            + ((c1.value - c2.value) * 360.0).powi(2)
     }
 }
 
